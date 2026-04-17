@@ -61,6 +61,13 @@
         <groupId>pro.fessional</groupId>
         <artifactId>kaptcha</artifactId>
         <version>2.3.3</version>
+        <exclusions>
+            <!-- 排除与 Spring Boot 3 (Jakarta) 冲突的老旧 javax.servlet -->
+            <exclusion>
+                <groupId>javax.servlet</groupId>
+                <artifactId>servlet-api</artifactId>
+            </exclusion>
+        </exclusions>
     </dependency>
     <dependency>
         <groupId>com.alibaba.fastjson2</groupId>
