@@ -1,6 +1,6 @@
 # AGENTS_CN.md - AI开发代理指南
 
-本文档为AI编码代理提供Qihang OMS（启航电商OMS系统）代码库的必要信息。
+本文档为AI编码代理提供Qihang OMS（元萃智臻系统）代码库的必要信息。
 
 ---
 

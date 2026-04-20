@@ -429,7 +429,7 @@ export default {
       position: relative;
       cursor: pointer;
       &.on{
-        color: #307dff;
+        color: #67C23A;
         &::after{
           content: '';
           position: absolute;
@@ -439,7 +439,7 @@ export default {
           height: 3px;
           width: 28px;
           margin: 12px auto 0;
-          background-color: #307dff;
+          background-color: #67C23A;
         }
       }
     }
@@ -449,8 +449,8 @@ export default {
     margin-top: 32px;
     .btns{
       color: #fff;
-      background-color: #307dff;
-      border-color: #307dff;
+      background-color: #67C23A;
+      border-color: #67C23A;
       width: 100%;
       border-radius: 8px;
       padding: 15px 0;
@@ -485,7 +485,7 @@ export default {
     span{
       font-size: 14px;
       margin-left: 8px;
-      color: #3179f8!important;
+      color: #67C23A!important;
       cursor: pointer;
     }
   }

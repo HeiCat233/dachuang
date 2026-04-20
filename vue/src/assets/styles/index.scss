@@ -110,11 +110,11 @@ aside {
   -moz-osx-font-smoothing: grayscale;
 
   a {
-    color: #337ab7;
+    color: #67C23A;
     cursor: pointer;
 
     &:hover {
-      color: rgb(32, 160, 255);
+      color: #85ce61;
     }
   }
 }
@@ -145,7 +145,7 @@ aside {
   text-align: right;
   padding-right: 20px;
   transition: 600ms ease position;
-  background: linear-gradient(90deg, rgba(32, 182, 249, 1) 0%, rgba(32, 182, 249, 1) 0%, rgba(33, 120, 241, 1) 100%, rgba(33, 120, 241, 1) 100%);
+  background: linear-gradient(90deg, rgba(103, 194, 58, 1) 0%, rgba(103, 194, 58, 1) 0%, rgba(82, 196, 26, 1) 100%, rgba(82, 196, 26, 1) 100%);
 
   .subtitle {
     font-size: 20px;
@@ -163,11 +163,11 @@ aside {
 
 .link-type,
 .link-type:focus {
-  color: #337ab7;
+  color: #67C23A;
   cursor: pointer;
 
   &:hover {
-    color: rgb(32, 160, 255);
+    color: #85ce61;
   }
 }
 
