@@ -91,7 +91,7 @@ public class OGoodsServiceImpl extends ServiceImpl<OGoodsMapper, OGoods>
     @Override
     public ResultVo<Long> insertGoods(String userName , GoodsAddBo bo)
     {
-        if(StringUtils.isEmpty(bo.getNumber())) return ResultVo.error(500,"商品编码不能为空");
+        if(!StringUtils.hasText(bo.getNumber())) return ResultVo.error(500,"商品编码不能为空");
         // 查询编码是否存在
         List<OGoods> goodsList = goodsMapper.selectList(new LambdaQueryWrapper<OGoods>().eq(OGoods::getGoodsNum,bo.getNumber()));
         if(goodsList!=null && goodsList.size()>0) return ResultVo.error(-1,"商品编码已存在");// return -1;

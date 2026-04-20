@@ -88,6 +88,27 @@ export const constantRoutes = [
         meta: { title: '个人中心', icon: 'user' }
       }
     ]
+  },
+  // AI内容生成路由
+  {
+    path: '/ai',
+    component: Layout,
+    redirect: '/ai/generate',
+    meta: { title: 'AI内容生成', icon: 'skill' },
+    children: [
+      {
+        path: 'generate',
+        component: () => import('@/views/ai/generate/index'),
+        name: 'AiGenerate',
+        meta: { title: 'AI生图', icon: 'image' }
+      },
+      {
+        path: 'history',
+        component: () => import('@/views/ai/history/index'),
+        name: 'AiHistory',
+        meta: { title: '历史记录', icon: 'documentation' }
+      }
+    ]
   }
 ]
 

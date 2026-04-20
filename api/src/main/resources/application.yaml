@@ -81,5 +81,18 @@ mybatis-plus:
 #server:
 #  port: 8082
 
+# 火山引擎API配置
+volcengine:
+  # API密钥（实际使用时需要替换为真实的密钥）
+  api-key: ark-abf0ca3b-9080-46e4-b317-ed8478d1d716-8b8cc
+  # API密钥ID（实际使用时需要替换为真实的密钥ID）
+  api-key-id: api-key-20260420165629
+  # 服务地址
+  service-url: https://ark.cn-beijing.volces.com/api/v3
+  # 超时时间（毫秒）
+  timeout: 30000
+  # 重试次数
+  retry-count: 3
+
 
 

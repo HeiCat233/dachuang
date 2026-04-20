@@ -1,0 +1,272 @@
+package cn.qihangerp.api.controller;
+
+import cn.qihangerp.common.AjaxResult;
+import cn.qihangerp.model.entity.AiGenerateTask;
+import cn.qihangerp.model.entity.AiGenerateResult;
+import cn.qihangerp.module.service.AiGenerateTaskService;
+import cn.qihangerp.module.service.AiGenerateResultService;
+import cn.qihangerp.security.common.SecurityUtils;
+import cn.qihangerp.api.service.VolcEngineApiService;
+import com.alibaba.fastjson.JSON;
+import com.alibaba.fastjson.JSONObject;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
+import java.util.Map;
+
+/**
+ * AI内容生成控制器
+ */
+@RestController
+@RequestMapping("/ai/generate")
+public class AiGenerateController {
+
+    @Autowired
+    private AiGenerateTaskService taskService;
+
+    @Autowired
+    private AiGenerateResultService resultService;
+
+    @Autowired
+    private VolcEngineApiService volcEngineApiService;
+
+    /**
+     * 创建生成任务
+     * @param task 任务信息
+     * @return 任务ID
+     */
+    @PostMapping("/createTask")
+    public AjaxResult createTask(@RequestBody AiGenerateTask task) {
+        try {
+            Long userId = SecurityUtils.getUserId();
+            task.setCreateBy(userId.toString());
+            Long taskId = taskService.createTask(task);
+            return AjaxResult.success(taskId);
+        } catch (Exception e) {
+            return AjaxResult.error(e.getMessage());
+        }
+    }
+
+    /**
+     * 生成图片
+     * @param taskId 任务ID
+     * @return 生成结果
+     */
+    @PostMapping("/generateImage/{taskId}")
+    public AjaxResult generateImage(@PathVariable Long taskId) {
+        try {
+            // 查询任务信息
+            AiGenerateTask task = taskService.queryTaskById(taskId);
+            if (task == null) {
+                return AjaxResult.error("任务不存在");
+            }
+
+            // 更新任务状态为处理中
+            taskService.updateTaskStatus(taskId, 1, null);
+
+            // 解析生图参数
+            Map<String, Object> imageParams = null;
+            if (task.getImageParams() != null && !task.getImageParams().isEmpty()) {
+                imageParams = JSON.parseObject(task.getImageParams(), Map.class);
+            }
+
+            // 调用火山引擎API生成图片
+            JSONObject result = volcEngineApiService.generateImage(
+                    task.getDescription(),
+                    task.getReferenceImage(),
+                    imageParams
+            );
+
+            // 保存生成结果
+            if (result.containsKey("data")) {
+                JSONObject data = result.getJSONObject("data");
+                if (data.containsKey("images")) {
+                    List<JSONObject> images = data.getJSONArray("images").toJavaList(JSONObject.class);
+                    for (JSONObject image : images) {
+                        AiGenerateResult generateResult = new AiGenerateResult();
+                        generateResult.setTaskId(taskId);
+                        generateResult.setResultType(1); // 1-图片
+                        generateResult.setResultContent(image.getString("url"));
+                        generateResult.setGenerateTime(new java.util.Date());
+                        generateResult.setCreateBy(task.getCreateBy());
+                        generateResult.setCreateTime(new java.util.Date());
+                        resultService.saveResult(generateResult);
+                    }
+                }
+            }
+
+            // 更新任务状态为成功
+            taskService.updateTaskStatus(taskId, 2, null);
+
+            return AjaxResult.success("图片生成成功");
+        } catch (Exception e) {
+            // 更新任务状态为失败
+            taskService.updateTaskStatus(taskId, 3, e.getMessage());
+            return AjaxResult.error(e.getMessage());
+        }
+    }
+
+    /**
+     * 生成文案
+     * @param taskId 任务ID
+     * @return 生成结果
+     */
+    @PostMapping("/generateCopywriting/{taskId}")
+    public AjaxResult generateCopywriting(@PathVariable Long taskId) {
+        try {
+            // 查询任务信息
+            AiGenerateTask task = taskService.queryTaskById(taskId);
+            if (task == null) {
+                return AjaxResult.error("任务不存在");
+            }
+
+            // 更新任务状态为处理中
+            taskService.updateTaskStatus(taskId, 1, null);
+
+            // 这里将调用文案生成API，暂时生成模拟数据
+            // 实际实现将在集成相关API后完成
+            String copywriting = "这是一份基于产品描述生成的宣传文案，突出产品的核心卖点和优势。\n\n" +
+                    "产品特点：" + task.getDescription() + "\n\n" +
+                    "适用场景：适合各类营销推广活动，可用于社交媒体、电商平台等渠道。\n\n" +
+                    "建议使用方式：搭配生成的图片，形成完整的营销素材。";
+
+            // 保存生成结果
+            AiGenerateResult generateResult = new AiGenerateResult();
+            generateResult.setTaskId(taskId);
+            generateResult.setResultType(2); // 2-文案
+            generateResult.setResultContent(copywriting);
+            generateResult.setGenerateTime(new java.util.Date());
+            generateResult.setCreateBy(task.getCreateBy());
+            generateResult.setCreateTime(new java.util.Date());
+            resultService.saveResult(generateResult);
+
+            // 更新任务状态为成功
+            taskService.updateTaskStatus(taskId, 2, null);
+
+            return AjaxResult.success("文案生成成功");
+        } catch (Exception e) {
+            // 更新任务状态为失败
+            taskService.updateTaskStatus(taskId, 3, e.getMessage());
+            return AjaxResult.error(e.getMessage());
+        }
+    }
+
+    /**
+     * 一键生成（图片+文案）
+     * @param taskId 任务ID
+     * @return 生成结果
+     */
+    @PostMapping("/generateAll/{taskId}")
+    public AjaxResult generateAll(@PathVariable Long taskId) {
+        try {
+            // 先调用生成图片接口
+            AjaxResult imageResult = generateImage(taskId);
+            if (imageResult.get("code") != null && !imageResult.get("code").equals(200)) {
+                return imageResult;
+            }
+
+            // 再调用生成文案接口
+            AjaxResult copywritingResult = generateCopywriting(taskId);
+            if (copywritingResult.get("code") != null && !copywritingResult.get("code").equals(200)) {
+                return copywritingResult;
+            }
+
+            return AjaxResult.success("一键生成成功");
+        } catch (Exception e) {
+            // 更新任务状态为失败
+            taskService.updateTaskStatus(taskId, 3, e.getMessage());
+            return AjaxResult.error(e.getMessage());
+        }
+    }
+
+    /**
+     * 获取任务列表
+     * @return 任务列表
+     */
+    @GetMapping("/taskList")
+    public AjaxResult getTaskList() {
+        try {
+            Long userId = SecurityUtils.getUserId();
+            List<AiGenerateTask> taskList = taskService.queryTaskListByUserId(userId);
+            return AjaxResult.success(taskList);
+        } catch (Exception e) {
+            return AjaxResult.error(e.getMessage());
+        }
+    }
+
+    /**
+     * 获取任务详情
+     * @param taskId 任务ID
+     * @return 任务详情
+     */
+    @GetMapping("/taskDetail/{taskId}")
+    public AjaxResult getTaskDetail(@PathVariable Long taskId) {
+        try {
+            AiGenerateTask task = taskService.queryTaskById(taskId);
+            return AjaxResult.success(task);
+        } catch (Exception e) {
+            return AjaxResult.error(e.getMessage());
+        }
+    }
+
+    /**
+     * 获取生成结果列表
+     * @param taskId 任务ID
+     * @return 结果列表
+     */
+    @GetMapping("/resultList/{taskId}")
+    public AjaxResult getResultList(@PathVariable Long taskId) {
+        try {
+            List<AiGenerateResult> resultList = resultService.queryResultListByTaskId(taskId);
+            return AjaxResult.success(resultList);
+        } catch (Exception e) {
+            return AjaxResult.error(e.getMessage());
+        }
+    }
+
+    /**
+     * 获取图片生成结果
+     * @param taskId 任务ID
+     * @return 图片结果列表
+     */
+    @GetMapping("/imageResult/{taskId}")
+    public AjaxResult getImageResult(@PathVariable Long taskId) {
+        try {
+            List<AiGenerateResult> resultList = resultService.queryResultListByTaskIdAndType(taskId, 1);
+            return AjaxResult.success(resultList);
+        } catch (Exception e) {
+            return AjaxResult.error(e.getMessage());
+        }
+    }
+
+    /**
+     * 获取文案生成结果
+     * @param taskId 任务ID
+     * @return 文案结果列表
+     */
+    @GetMapping("/copywritingResult/{taskId}")
+    public AjaxResult getCopywritingResult(@PathVariable Long taskId) {
+        try {
+            List<AiGenerateResult> resultList = resultService.queryResultListByTaskIdAndType(taskId, 2);
+            return AjaxResult.success(resultList);
+        } catch (Exception e) {
+            return AjaxResult.error(e.getMessage());
+        }
+    }
+
+    /**
+     * 删除任务
+     * @param taskId 任务ID
+     * @return 删除结果
+     */
+    @DeleteMapping("/deleteTask/{taskId}")
+    public AjaxResult deleteTask(@PathVariable Long taskId) {
+        try {
+            taskService.removeById(taskId);
+            return AjaxResult.success("删除成功");
+        } catch (Exception e) {
+            return AjaxResult.error(e.getMessage());
+        }
+    }
+}

@@ -226,7 +226,7 @@ public class OOrderServiceImpl extends ServiceImpl<OOrderMapper, OOrder>
     @Transactional
     @Override
     public ResultVo<Integer> manualShipmentOrder(OrderShipRequest shipBo, String createBy) {
-        if (org.springframework.util.StringUtils.isEmpty(shipBo.getId()) || shipBo.getId().equals("0"))
+        if (!org.springframework.util.StringUtils.hasText(shipBo.getId()) || shipBo.getId().equals("0"))
             return ResultVo.error(ResultVoEnum.ParamsError, "缺少参数：id");
 
         OOrder erpOrder = orderMapper.selectById(shipBo.getId());
@@ -387,7 +387,7 @@ public class OOrderServiceImpl extends ServiceImpl<OOrderMapper, OOrder>
      */
     @Override
     public ResultVo<Integer> allocateShipmentOrder(OrderAllocateShipRequest shipBo, String createBy) {
-        if (org.springframework.util.StringUtils.isEmpty(shipBo.getId()) || shipBo.getId().equals("0"))
+        if (!org.springframework.util.StringUtils.hasText(shipBo.getId()) || shipBo.getId().equals("0"))
             return ResultVo.error(ResultVoEnum.ParamsError, "缺少参数：id");
         if(shipBo.getSupplierId()==null||shipBo.getSupplierId()==0) return ResultVo.error("缺少参数：supplierId");
 

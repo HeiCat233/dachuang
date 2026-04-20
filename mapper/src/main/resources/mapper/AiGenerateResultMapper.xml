@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="cn.qihangerp.mapper.AiGenerateResultMapper">
+    <!-- 通用查询映射结果 -->
+    <resultMap id="BaseResultMap" type="cn.qihangerp.model.entity.AiGenerateResult">
+        <id column="id" property="id" />
+        <result column="task_id" property="taskId" />
+        <result column="result_type" property="resultType" />
+        <result column="result_content" property="resultContent" />
+        <result column="generate_time" property="generateTime" />
+        <result column="create_time" property="createTime" />
+        <result column="create_by" property="createBy" />
+    </resultMap>
+
+    <!-- 通用查询结果列 -->
+    <sql id="Base_Column_List">
+        id, task_id, result_type, result_content, generate_time, create_time, create_by
+    </sql>
+</mapper>
