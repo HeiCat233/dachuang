@@ -169,4 +169,11 @@ export default {
 .theme-picker-dropdown .el-color-dropdown__link-btn {
   display: none;
 }
+
+/* 确保样式中没有蓝色相关的颜色值 */
+.theme-picker .el-color-picker__trigger {
+  height: 26px !important;
+  width: 26px !important;
+  padding: 2px;
+}
 </style>
