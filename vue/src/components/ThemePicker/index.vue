@@ -1,7 +1,7 @@
 <template>
   <el-color-picker
     v-model="theme"
-    :predefine="['#409EFF', '#1890ff', '#304156','#212121','#11a983', '#13c2c2', '#6959CD', '#f5222d', ]"
+    :predefine="['#11a983', '#1890ff', '#304156', '#212121', '#13c2c2', '#6959CD', '#f5222d']"
     class="theme-picker"
     popper-class="theme-picker-dropdown"
   />
@@ -9,7 +9,7 @@
 
 <script>
 const version = require('element-ui/package.json').version // element-ui version from node_modules
-const ORIGINAL_THEME = '#409EFF' // default color
+const ORIGINAL_THEME = '#11a983' // default color (浅绿色)
 
 export default {
   data() {
@@ -35,11 +35,10 @@ export default {
     }
   },
   created() {
-    if(this.defaultTheme !== ORIGINAL_THEME) {
+    if (this.defaultTheme !== ORIGINAL_THEME) {
       this.setTheme(this.defaultTheme)
     }
   },
-
   methods: {
     async setTheme(val) {
       const oldVal = this.chalk ? this.theme : ORIGINAL_THEME

@@ -55,7 +55,7 @@
                        :loading="loading"
                        size="medium"
                        type="primary"
-                       style="width:100%;"
+                       style="width:100%; background-color: #11a983; border-color: #11a983;"
                        @click.native.prevent="handleLogin"
             >
               <span v-if="!loading">登 录</span>
