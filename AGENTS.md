@@ -1,10 +1,10 @@
 # AGENTS.md - Agent Development Guidelines
 
-This document provides essential information for AI coding agents working on the Qihang OMS (启航电商OMS系统) codebase.
+This document provides essential information for AI coding agents working on the YuanCui ZhiZhen (元萃智臻系统) codebase.
 
 ## Project Overview
 
-**Qihang OMS** is an open-source e-commerce Order Management System supporting multiple platforms: Taobao/Tmall, JD.com, Pinduoduo, Douyin, and WeChat Shop.
+**YuanCui ZhiZhen** is an open-source e-commerce Order Management System supporting multiple platforms: Taobao/Tmall, JD.com, Pinduoduo, Douyin, and WeChat Shop.
 
 - **Language**: Java 17
 - **Framework**: Spring Boot 3.0.2
