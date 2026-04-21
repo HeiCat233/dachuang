@@ -89,24 +89,24 @@ export const constantRoutes = [
       }
     ]
   },
-  // AI内容生成路由
+  // AI内容生成菜单
   {
     path: '/ai',
     component: Layout,
-    redirect: '/ai/generate',
+    redirect: '/ai/dashboard',
     meta: { title: 'AI内容生成', icon: 'skill' },
     children: [
       {
-        path: 'generate',
+        path: 'dashboard',
         component: () => import('@/views/ai/generate/index'),
-        name: 'AiGenerate',
-        meta: { title: 'AI生图', icon: 'image' }
+        name: 'AiDashboard',
+        meta: { title: '内容生成', icon: 'star' }
       },
       {
         path: 'history',
         component: () => import('@/views/ai/history/index'),
         name: 'AiHistory',
-        meta: { title: '历史记录', icon: 'documentation' }
+        meta: { title: '生成历史', icon: 'history' }
       }
     ]
   }
