@@ -257,7 +257,8 @@ export default {
         
         // 调用后端API获取图片生成结果
         const imageResultResponse = await getImageResult(taskId);
-        this.imageResults = imageResultResponse.data.map(item => item.resultContent);
+        // 处理图片URL，移除可能的反引号
+        this.imageResults = imageResultResponse.data.map(item => item.resultContent.replace(/`/g, ''));
         
         // 调用后端API获取文案生成结果
         const copywritingResultResponse = await getCopywritingResult(taskId);

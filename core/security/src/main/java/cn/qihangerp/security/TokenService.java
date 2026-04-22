@@ -14,6 +14,8 @@ import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
 import jakarta.servlet.http.HttpServletRequest;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
@@ -30,6 +32,7 @@ import java.util.concurrent.TimeUnit;
 @Component
 public class TokenService
 {
+    private static final Logger logger = LoggerFactory.getLogger(TokenService.class);
     // 令牌自定义标识
 //    @Value("${token.header:'Authorization'}")
 //    private String header;
@@ -73,6 +76,7 @@ public class TokenService
             }
             catch (Exception e)
             {
+                logger.error("解析 token 出错: {}", e.getMessage(), e);
             }
         }
         return null;

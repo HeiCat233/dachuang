@@ -9,11 +9,14 @@ import cn.qihangerp.security.common.SecurityUtils;
 import cn.qihangerp.api.service.VolcEngineApiService;
 import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONObject;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 import java.util.Map;
+import java.util.HashMap;
 
 /**
  * AI内容生成控制器
@@ -21,6 +24,8 @@ import java.util.Map;
 @RestController
 @RequestMapping("/ai/generate")
 public class AiGenerateController {
+
+    private static final Logger logger = LoggerFactory.getLogger(AiGenerateController.class);
 
     @Autowired
     private AiGenerateTaskService taskService;
@@ -185,11 +190,20 @@ public class AiGenerateController {
      * @return 任务列表
      */
     @GetMapping("/taskList")
-    public AjaxResult getTaskList() {
+    public AjaxResult getTaskList(@RequestParam(required = false) Integer page,
+                                 @RequestParam(required = false) Integer pageSize,
+                                 @RequestParam(required = false) String taskName,
+                                 @RequestParam(required = false) Integer status) {
         try {
             Long userId = SecurityUtils.getUserId();
             List<AiGenerateTask> taskList = taskService.queryTaskListByUserId(userId);
-            return AjaxResult.success(taskList);
+            
+            // 构建分页响应对象
+            Map<String, Object> result = new HashMap<>();
+            result.put("list", taskList);
+            result.put("total", taskList.size());
+            
+            return AjaxResult.success(result);
         } catch (Exception e) {
             return AjaxResult.error(e.getMessage());
         }

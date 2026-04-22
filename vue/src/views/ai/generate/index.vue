@@ -152,7 +152,7 @@
 </template>
 
 <script>
-import { createTask, generateImage, generateCopywriting, generateAll, getImageResult, getCopywritingResult } from '@/api/ai/generate'
+import { createTask, generateImage, generateCopywriting, generateAll, getImageResult, getCopywritingResult, getTaskDetail } from '@/api/ai/generate'
 
 export default {
   name: 'AiGenerate',
@@ -211,12 +211,49 @@ export default {
         // 调用生成图片API
         await generateImage(this.taskId);
         
-        // 获取生成结果
-        const resultResponse = await getImageResult(this.taskId);
-        this.imageResults = resultResponse.data.map(item => item.resultContent);
+        // 轮询等待任务完成（最多等待60秒）
+        let retryCount = 0;
+        const maxRetries = 12; // 12次 * 5秒 = 60秒
         
+        while (retryCount < maxRetries) {
+          // 等待5秒
+          await new Promise(resolve => setTimeout(resolve, 5000));
+          
+          // 查询任务状态
+          const taskDetailResponse = await getTaskDetail(this.taskId);
+          
+          // 检查响应数据是否存在
+          if (!taskDetailResponse || !taskDetailResponse.data) {
+            console.error('任务详情响应数据异常:', taskDetailResponse);
+            continue;
+          }
+          
+          const taskStatus = taskDetailResponse.data.status;
+          
+          if (taskStatus === 2) {
+            // 成功，获取结果
+            const resultResponse = await getImageResult(this.taskId);
+            if (resultResponse.data && resultResponse.data.length > 0) {
+              // 处理图片URL，移除可能的反引号
+              this.imageResults = resultResponse.data.map(item => item.resultContent.replace(/`/g, ''));
+              this.loading.generateImage = false;
+              this.$message.success('图片生成成功');
+              return;
+            }
+          } else if (taskStatus === 3) {
+            // 失败
+            const errorMsg = taskDetailResponse.data.errorMessage || '生成失败';
+            this.loading.generateImage = false;
+            this.$message.error('图片生成失败：' + errorMsg);
+            return;
+          }
+          
+          retryCount++;
+        }
+        
+        // 超时
         this.loading.generateImage = false;
-        this.$message.success('图片生成成功');
+        this.$message.warning('生成超时，请稍后在历史记录中查看');
       } catch (error) {
         this.loading.generateImage = false;
         this.$message.error('图片生成失败：' + error.message);
@@ -284,18 +321,51 @@ export default {
         // 调用一键生成API
         await generateAll(this.taskId);
         
-        // 获取图片生成结果
-        const imageResultResponse = await getImageResult(this.taskId);
-        this.imageResults = imageResultResponse.data.map(item => item.resultContent);
+        // 轮询等待任务完成（最多等待60秒）
+        let retryCount = 0;
+        const maxRetries = 12;
         
-        // 获取文案生成结果
-        const copywritingResultResponse = await getCopywritingResult(this.taskId);
-        if (copywritingResultResponse.data.length > 0) {
-          this.copywritingResult = copywritingResultResponse.data[0].resultContent;
+        while (retryCount < maxRetries) {
+          await new Promise(resolve => setTimeout(resolve, 5000));
+          
+          const taskDetailResponse = await getTaskDetail(this.taskId);
+          
+          // 检查响应数据是否存在
+          if (!taskDetailResponse || !taskDetailResponse.data) {
+            console.error('任务详情响应数据异常:', taskDetailResponse);
+            continue;
+          }
+          
+          const taskStatus = taskDetailResponse.data.status;
+          
+          if (taskStatus === 2) {
+            // 成功，获取结果
+            const imageResultResponse = await getImageResult(this.taskId);
+            if (imageResultResponse.data && imageResultResponse.data.length > 0) {
+              // 处理图片URL，移除可能的反引号
+              this.imageResults = imageResultResponse.data.map(item => item.resultContent.replace(/`/g, ''));
+            }
+            
+            const copywritingResultResponse = await getCopywritingResult(this.taskId);
+            if (copywritingResultResponse.data && copywritingResultResponse.data.length > 0) {
+              this.copywritingResult = copywritingResultResponse.data[0].resultContent;
+            }
+            
+            this.loading.generateAll = false;
+            this.$message.success('一键生成成功');
+            return;
+          } else if (taskStatus === 3) {
+            const errorMsg = taskDetailResponse.data.errorMessage || '生成失败';
+            this.loading.generateAll = false;
+            this.$message.error('生成失败：' + errorMsg);
+            return;
+          }
+          
+          retryCount++;
         }
         
         this.loading.generateAll = false;
-        this.$message.success('一键生成成功');
+        this.$message.warning('生成超时，请稍后在历史记录中查看');
       } catch (error) {
         this.loading.generateAll = false;
         this.$message.error('一键生成失败：' + error.message);

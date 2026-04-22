@@ -15,9 +15,9 @@ public class VolcEngineConfig {
     private String apiKey;
 
     /**
-     * API密钥ID
+     * 模型ID
      */
-    private String apiKeyId;
+    private String modelId;
 
     /**
      * 服务地址
@@ -42,12 +42,12 @@ public class VolcEngineConfig {
         this.apiKey = apiKey;
     }
 
-    public String getApiKeyId() {
-        return apiKeyId;
+    public String getModelId() {
+        return modelId;
     }
 
-    public void setApiKeyId(String apiKeyId) {
-        this.apiKeyId = apiKeyId;
+    public void setModelId(String modelId) {
+        this.modelId = modelId;
     }
 
     public String getServiceUrl() {
