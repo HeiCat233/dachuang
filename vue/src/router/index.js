@@ -100,13 +100,13 @@ export const constantRoutes = [
         path: 'dashboard',
         component: () => import('@/views/ai/generate/index'),
         name: 'AiDashboard',
-        meta: { title: '内容生成', icon: 'star' }
+        meta: { title: 'AI生图', icon: 'image' }
       },
       {
         path: 'history',
         component: () => import('@/views/ai/history/index'),
         name: 'AiHistory',
-        meta: { title: '生成历史', icon: 'history' }
+        meta: { title: '历史记录', icon: 'documentation' }
       }
     ]
   }

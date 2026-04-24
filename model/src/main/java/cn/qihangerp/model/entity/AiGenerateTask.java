@@ -67,11 +67,6 @@ public class AiGenerateTask implements Serializable {
      */
     private Date updateTime;
 
-    /**
-     * 更新人
-     */
-    private String updateBy;
-
     @TableField(exist = false)
     private static final long serialVersionUID = 1L;
 }

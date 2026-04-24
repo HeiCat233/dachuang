@@ -60,10 +60,12 @@ public class AiGenerateController {
      */
     @PostMapping("/generateImage/{taskId}")
     public AjaxResult generateImage(@PathVariable Long taskId) {
+        logger.info("[AiGenerate] 收到生图请求: TaskId={}", taskId);
         try {
             // 查询任务信息
             AiGenerateTask task = taskService.queryTaskById(taskId);
             if (task == null) {
+                logger.error("[AiGenerate] 生图失败: 任务不存在, TaskId={}", taskId);
                 return AjaxResult.error("任务不存在");
             }
 
@@ -83,12 +85,16 @@ public class AiGenerateController {
                     imageParams
             );
 
+            logger.info("[AiGenerate] 火山引擎API调用完成: TaskId={}, Result={}", taskId, result.toJSONString());
+
             // 保存生成结果
             if (result.containsKey("data")) {
-                JSONObject data = result.getJSONObject("data");
-                if (data.containsKey("images")) {
-                    List<JSONObject> images = data.getJSONArray("images").toJavaList(JSONObject.class);
-                    for (JSONObject image : images) {
+                // 火山引擎 Ark API 返回的 data 通常是一个数组
+                Object dataObj = result.get("data");
+                if (dataObj instanceof com.alibaba.fastjson.JSONArray) {
+                    com.alibaba.fastjson.JSONArray dataArray = (com.alibaba.fastjson.JSONArray) dataObj;
+                    for (int i = 0; i < dataArray.size(); i++) {
+                        JSONObject image = dataArray.getJSONObject(i);
                         AiGenerateResult generateResult = new AiGenerateResult();
                         generateResult.setTaskId(taskId);
                         generateResult.setResultType(1); // 1-图片
@@ -97,6 +103,22 @@ public class AiGenerateController {
                         generateResult.setCreateBy(task.getCreateBy());
                         generateResult.setCreateTime(new java.util.Date());
                         resultService.saveResult(generateResult);
+                    }
+                } else if (dataObj instanceof JSONObject) {
+                    // 兼容某些模型返回对象的情况
+                    JSONObject data = (JSONObject) dataObj;
+                    if (data.containsKey("images")) {
+                        List<JSONObject> images = data.getJSONArray("images").toJavaList(JSONObject.class);
+                        for (JSONObject image : images) {
+                            AiGenerateResult generateResult = new AiGenerateResult();
+                            generateResult.setTaskId(taskId);
+                            generateResult.setResultType(1); // 1-图片
+                            generateResult.setResultContent(image.getString("url"));
+                            generateResult.setGenerateTime(new java.util.Date());
+                            generateResult.setCreateBy(task.getCreateBy());
+                            generateResult.setCreateTime(new java.util.Date());
+                            resultService.saveResult(generateResult);
+                        }
                     }
                 }
             }
@@ -119,22 +141,25 @@ public class AiGenerateController {
      */
     @PostMapping("/generateCopywriting/{taskId}")
     public AjaxResult generateCopywriting(@PathVariable Long taskId) {
+        logger.info("[AiGenerate] 收到文案生成请求: TaskId={}", taskId);
         try {
             // 查询任务信息
             AiGenerateTask task = taskService.queryTaskById(taskId);
             if (task == null) {
+                logger.error("[AiGenerate] 文案生成失败: 任务不存在, TaskId={}", taskId);
                 return AjaxResult.error("任务不存在");
             }
 
             // 更新任务状态为处理中
             taskService.updateTaskStatus(taskId, 1, null);
 
-            // 这里将调用文案生成API，暂时生成模拟数据
-            // 实际实现将在集成相关API后完成
-            String copywriting = "这是一份基于产品描述生成的宣传文案，突出产品的核心卖点和优势。\n\n" +
-                    "产品特点：" + task.getDescription() + "\n\n" +
-                    "适用场景：适合各类营销推广活动，可用于社交媒体、电商平台等渠道。\n\n" +
-                    "建议使用方式：搭配生成的图片，形成完整的营销素材。";
+            // 模拟生成过程
+            Thread.sleep(1000);
+
+            String copywriting = "【产品名称】精品推荐\n\n" +
+                    "【核心卖点】" + (task.getDescription() != null ? task.getDescription() : "优质品质，极简设计") + "\n\n" +
+                    "【推荐理由】精选材质，匠心打造，为您提供最舒适的使用体验。无论是居家还是办公，都是您的不二之选。\n\n" +
+                    "立即抢购，开启品质生活！";
 
             // 保存生成结果
             AiGenerateResult generateResult = new AiGenerateResult();
@@ -148,9 +173,11 @@ public class AiGenerateController {
 
             // 更新任务状态为成功
             taskService.updateTaskStatus(taskId, 2, null);
+            logger.info("[AiGenerate] 文案生成成功: TaskId={}", taskId);
 
             return AjaxResult.success("文案生成成功");
         } catch (Exception e) {
+            logger.error("[AiGenerate] 文案生成异常: TaskId={}, Error={}", taskId, e.getMessage(), e);
             // 更新任务状态为失败
             taskService.updateTaskStatus(taskId, 3, e.getMessage());
             return AjaxResult.error(e.getMessage());

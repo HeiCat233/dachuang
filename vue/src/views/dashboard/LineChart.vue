@@ -96,12 +96,10 @@ export default {
         series: [
           {
           name: '销售额', itemStyle: {
-            normal: {
+            color: '#FF005A',
+            lineStyle: {
               color: '#FF005A',
-              lineStyle: {
-                color: '#FF005A',
-                width: 2
-              }
+              width: 2
             }
           },
           smooth: true,
@@ -115,15 +113,13 @@ export default {
           smooth: true,
           type: 'line',
           itemStyle: {
-            normal: {
+            color: '#3888fa',
+            areaStyle: {
+              color: '#f3f8ff'
+            },
+            lineStyle: {
               color: '#3888fa',
-              lineStyle: {
-                color: '#3888fa',
-                width: 2
-              },
-              areaStyle: {
-                color: '#f3f8ff'
-              }
+              width: 2
             }
           },
           data: salesOrder,
