@@ -15,7 +15,8 @@ export function createTask(task) {
 export function generateImage(taskId) {
   return request({
     url: `/ai/generate/generateImage/${taskId}`,
-    method: 'post'
+    method: 'post',
+    timeout: 120000 // 增加超时时间到120秒
   })
 }
 
@@ -23,7 +24,8 @@ export function generateImage(taskId) {
 export function generateCopywriting(taskId) {
   return request({
     url: `/ai/generate/generateCopywriting/${taskId}`,
-    method: 'post'
+    method: 'post',
+    timeout: 60000 // 增加超时时间到60秒
   })
 }
 
@@ -31,7 +33,8 @@ export function generateCopywriting(taskId) {
 export function generateAll(taskId) {
   return request({
     url: `/ai/generate/generateAll/${taskId}`,
-    method: 'post'
+    method: 'post',
+    timeout: 180000 // 增加超时时间到180秒
   })
 }
 

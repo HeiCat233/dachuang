@@ -89,7 +89,7 @@ volcengine:
   # 服务地址
   service-url: https://ark.cn-beijing.volces.com/api/v3
   # 超时时间（毫秒）
-  timeout: 30000
+  timeout: 120000
   # 重试次数
   retry-count: 3
 
