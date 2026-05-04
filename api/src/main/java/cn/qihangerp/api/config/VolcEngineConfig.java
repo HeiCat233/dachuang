@@ -25,6 +25,11 @@ public class VolcEngineConfig {
     private String serviceUrl;
 
     /**
+     * 视觉API地址（用于图生图）
+     */
+    private String visualServiceUrl;
+
+    /**
      * 超时时间（毫秒）
      */
     private int timeout = 30000;
@@ -56,6 +61,14 @@ public class VolcEngineConfig {
 
     public void setServiceUrl(String serviceUrl) {
         this.serviceUrl = serviceUrl;
+    }
+
+    public String getVisualServiceUrl() {
+        return visualServiceUrl;
+    }
+
+    public void setVisualServiceUrl(String visualServiceUrl) {
+        this.visualServiceUrl = visualServiceUrl;
     }
 
     public int getTimeout() {

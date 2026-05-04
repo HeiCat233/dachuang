@@ -86,8 +86,10 @@ volcengine:
   api-key: ark-b838c113-c8ad-41dd-a214-6af60b5e530c-d3d7a
   # 模型ID
   model-id: ep-20260422092334-fkljc
-  # 服务地址
+  # 服务地址（文生图使用Ark API）
   service-url: https://ark.cn-beijing.volces.com/api/v3
+  # 视觉API地址（用于图生图）
+  visual-service-url: https://visual.volcengineapi.com
   # 超时时间（毫秒）
   timeout: 120000
   # 重试次数

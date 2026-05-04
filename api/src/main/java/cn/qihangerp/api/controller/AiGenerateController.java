@@ -153,13 +153,26 @@ public class AiGenerateController {
             // 更新任务状态为处理中
             taskService.updateTaskStatus(taskId, 1, null);
 
-            // 模拟生成过程
-            Thread.sleep(1000);
+            // 解析生图参数获取文案风格
+            String style = "default";
+            if (task.getImageParams() != null && !task.getImageParams().isEmpty()) {
+                try {
+                    Map<String, Object> params = JSON.parseObject(task.getImageParams(), Map.class);
+                    if (params != null && params.containsKey("style")) {
+                        style = params.get("style").toString();
+                    }
+                } catch (Exception e) {
+                    logger.warn("[AiGenerate] 解析生图参数失败，使用默认风格: {}", e.getMessage());
+                }
+            }
 
-            String copywriting = "【产品名称】精品推荐\n\n" +
-                    "【核心卖点】" + (task.getDescription() != null ? task.getDescription() : "优质品质，极简设计") + "\n\n" +
-                    "【推荐理由】精选材质，匠心打造，为您提供最舒适的使用体验。无论是居家还是办公，都是您的不二之选。\n\n" +
-                    "立即抢购，开启品质生活！";
+            // 调用文案生成服务（本地模板生成有趣文案）
+            String copywriting = volcEngineApiService.generateCopywritingLocal(
+                    task.getDescription(),
+                    style
+            );
+
+            logger.info("[AiGenerate] 文案生成完成: TaskId={}, Style={}", taskId, style);
 
             // 保存生成结果
             AiGenerateResult generateResult = new AiGenerateResult();
