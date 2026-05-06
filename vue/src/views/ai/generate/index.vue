@@ -204,9 +204,34 @@ export default {
           imageParams: JSON.stringify(this.form.imageParams)
         };
         
+        // 如果有上传的参考图片，转换为Base64并添加到任务数据中
+        if (this.fileList && this.fileList.length > 0) {
+          const file = this.fileList[0].raw || this.fileList[0];
+          const base64Image = await this.convertFileToBase64(file);
+          taskData.referenceImage = base64Image;
+          
+          // 图生图模式下，移除 size 参数（因为输出尺寸由输入图片决定）
+          if (this.form.imageParams.size) {
+            delete this.form.imageParams.size;
+            taskData.imageParams = JSON.stringify(this.form.imageParams);
+          }
+        }
+        
         // 调用后端API创建任务
         const taskResponse = await createTask(taskData);
+        console.log('[AI生成] 创建任务响应:', taskResponse);
+        
+        // 检查响应是否成功
+        if (!taskResponse || !taskResponse.data) {
+          throw new Error('创建任务失败：响应数据异常');
+        }
+        
         this.taskId = taskResponse.data;
+        console.log('[AI生成] 任务ID:', this.taskId);
+        
+        if (!this.taskId) {
+          throw new Error('创建任务失败：未获取到任务ID');
+        }
         
         // 调用生成图片API
         await generateImage(this.taskId);
@@ -278,7 +303,19 @@ export default {
           
           // 调用后端API创建任务
           const taskResponse = await createTask(taskData);
+          console.log('[AI生成] 创建任务响应:', taskResponse);
+          
+          // 检查响应是否成功
+          if (!taskResponse || !taskResponse.data) {
+            throw new Error('创建任务失败：响应数据异常');
+          }
+          
           this.taskId = taskResponse.data;
+          console.log('[AI生成] 任务ID:', this.taskId);
+          
+          if (!this.taskId) {
+            throw new Error('创建任务失败：未获取到任务ID');
+          }
         }
         
         // 调用生成文案API
@@ -314,9 +351,34 @@ export default {
           imageParams: JSON.stringify(this.form.imageParams)
         };
         
+        // 如果有上传的参考图片，转换为Base64并添加到任务数据中
+        if (this.fileList && this.fileList.length > 0) {
+          const file = this.fileList[0].raw || this.fileList[0];
+          const base64Image = await this.convertFileToBase64(file);
+          taskData.referenceImage = base64Image;
+          
+          // 图生图模式下，移除 size 参数
+          if (this.form.imageParams.size) {
+            delete this.form.imageParams.size;
+            taskData.imageParams = JSON.stringify(this.form.imageParams);
+          }
+        }
+        
         // 调用后端API创建任务
         const taskResponse = await createTask(taskData);
+        console.log('[AI生成] 创建任务响应:', taskResponse);
+        
+        // 检查响应是否成功
+        if (!taskResponse || !taskResponse.data) {
+          throw new Error('创建任务失败：响应数据异常');
+        }
+        
         this.taskId = taskResponse.data;
+        console.log('[AI生成] 任务ID:', this.taskId);
+        
+        if (!this.taskId) {
+          throw new Error('创建任务失败：未获取到任务ID');
+        }
         
         // 调用一键生成API
         await generateAll(this.taskId);
@@ -394,6 +456,16 @@ export default {
       document.execCommand('copy');
       document.body.removeChild(textarea);
       this.$message.success('文案复制成功');
+    },
+    
+    // 将文件转换为Base64
+    convertFileToBase64(file) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.readAsDataURL(file);
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = error => reject(error);
+      });
     }
   }
 }

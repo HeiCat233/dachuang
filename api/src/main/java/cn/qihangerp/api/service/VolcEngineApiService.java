@@ -23,6 +23,7 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.Base64;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 @Service
@@ -44,6 +45,9 @@ public class VolcEngineApiService {
                 requestParams.put("response_format", "url");
 
                 boolean isRefineMode = (referenceImage != null && !referenceImage.isEmpty());
+                
+                // 【增强】构建增强后的提示词，使其更符合“产品宣传图像”风格，并强调保持产品一致性
+                String enhancedPrompt = "Professional product photography, studio lighting, high quality, commercial advertisement style, centered product, consistent product appearance, " + prompt;
 
                 if (isRefineMode) {
                     logger.info("[图生图模式] 开始验证和处理参考图片");
@@ -51,26 +55,40 @@ public class VolcEngineApiService {
                     // 验证并处理参考图片
                     String validatedImage = validateAndProcessReferenceImage(referenceImage);
                     
-                    requestParams.put("prompt", prompt);
-                    requestParams.put("image", validatedImage);  // 使用 image 参数
+                    requestParams.put("prompt", enhancedPrompt);
+                    // 【适配示例】image 参数为数组格式
+                    requestParams.put("image", new String[]{validatedImage});
                     
-                    logger.info("[图生图模式] 参考图片验证通过");
                 } else {
                     logger.info("[文生图模式] 从文本提示生成新图片");
-                    requestParams.put("prompt", prompt);
-                    // 设置默认尺寸（如果params中没有指定）
-                    if (params == null || !params.containsKey("size")) {
-                        requestParams.put("size", "2048x2048");
+                    requestParams.remove("image");
+                    requestParams.put("prompt", enhancedPrompt);
+                }
+
+                // 合并其他参数
+                if (params != null) {
+                    for (Map.Entry<String, Object> entry : params.entrySet()) {
+                        requestParams.put(entry.getKey(), entry.getValue());
                     }
                 }
 
-                if (params != null) {
-                    for (Map.Entry<String, Object> entry : params.entrySet()) {
-                        if (!requestParams.containsKey(entry.getKey())) {
-                            requestParams.put(entry.getKey(), entry.getValue());
-                        }
-                    }
+                // 【核心修复：强制覆盖，防止旧任务数据干扰】
+                // 针对 3686400 像素报错：必须在合并 params 之后执行，确保 100% 覆盖掉数据库中的旧 size 数据
+                if (isRefineMode) {
+                    // 图生图模式下绝对不能传 size，否则会报错尺寸不匹配
+                    requestParams.remove("size");
+                    logger.info("[图生图模式] 已强制移除 size 参数");
+                } else {
+                    // 文生图模式下强制使用高分辨率，且必须大于 3686400 像素
+                    // 2048x2048 = 4,194,304 像素，绝对安全
+                    requestParams.put("size", "2048x2048"); 
+                    logger.info("[文生图模式] 已强制设置 size 为 2048x2048 (约419万像素)");
                 }
+                
+                // 统一设置官方推荐参数
+                requestParams.put("response_format", "url");
+                requestParams.put("stream", false);
+                requestParams.put("watermark", true);
 
                 logger.info("模式: {}, 参考图片: {}", isRefineMode ? "图生图" : "文生图", isRefineMode ? "是" : "否");
                 
@@ -114,8 +132,16 @@ public class VolcEngineApiService {
             } 
             // 处理HTTP/HTTPS URL
             else if (referenceImage.startsWith("http://") || referenceImage.startsWith("https://")) {
-                logger.warn("URL格式的图片暂未实现下载验证，请确保图片符合火山引擎要求: {}", referenceImage);
-                return referenceImage;
+                logger.info("检测到URL格式图片，开始下载: {}", referenceImage);
+                
+                // 下载图片
+                try (java.io.InputStream inputStream = new java.net.URL(referenceImage).openStream()) {
+                    imageBytes = inputStream.readAllBytes();
+                    logger.info("图片下载成功，大小: {}KB", imageBytes.length / 1024);
+                } catch (Exception e) {
+                    logger.error("图片下载失败: {}", e.getMessage());
+                    throw new IllegalArgumentException("图片下载失败: " + e.getMessage());
+                }
             } 
             // 处理纯Base64格式
             else {
@@ -139,9 +165,29 @@ public class VolcEngineApiService {
 
             int width = bufferedImage.getWidth();
             int height = bufferedImage.getHeight();
-            logger.info("图片分辨率: {}x{}", width, height);
+            logger.info("原始图片分辨率: {}x{}", width, height);
 
-            // 验证分辨率（最大4096x4096）
+            // 【核心修复】针对模型 3686400 像素的硬性要求，如果原图不足，则自动等比放大
+            long totalPixels = (long) width * height;
+            if (totalPixels < 3686400) {
+                double scale = Math.sqrt(3686400.0 / totalPixels) + 0.1; // 略微多放大一点点以保安全
+                int newWidth = (int) (width * scale);
+                int newHeight = (int) (height * scale);
+                
+                logger.info("[自动优化] 检测到原图像素（{}）不足 368.64万，正在自动放大至: {}x{}", totalPixels, newWidth, newHeight);
+                
+                java.awt.Image scaledImage = bufferedImage.getScaledInstance(newWidth, newHeight, java.awt.Image.SCALE_SMOOTH);
+                BufferedImage outputImage = new BufferedImage(newWidth, newHeight, BufferedImage.TYPE_INT_RGB);
+                outputImage.getGraphics().drawImage(scaledImage, 0, 0, null);
+                
+                java.io.ByteArrayOutputStream baos = new java.io.ByteArrayOutputStream();
+                ImageIO.write(outputImage, "jpg", baos);
+                imageBytes = baos.toByteArray();
+                width = newWidth;
+                height = newHeight;
+            }
+
+            // 再次验证分辨率（最大4096x4096）
             if (width > 4096 || height > 4096) {
                 throw new IllegalArgumentException(String.format(
                     "图片分辨率超过4096x4096限制，当前: %dx%d", width, height));
@@ -192,15 +238,21 @@ public class VolcEngineApiService {
             String requestBody = JSON.toJSONString(params);
             httpPost.setEntity(new StringEntity(requestBody, StandardCharsets.UTF_8));
 
+            logger.info("========== 火山引擎API调用开始 ==========");
             logger.info("请求URL: {}", url);
-            logger.debug("请求体: {}", requestBody);
+            logger.info("请求方法: POST");
+            logger.info("请求体: {}", requestBody);
+            logger.info("==========================================");
             
             HttpResponse response = httpClient.execute(httpPost);
 
             HttpEntity entity = response.getEntity();
             String responseBody = EntityUtils.toString(entity, StandardCharsets.UTF_8);
             
-            logger.info("响应状态: {}, 响应体: {}", response.getStatusLine().getStatusCode(), responseBody);
+            logger.info("========== 火山引擎API响应 ==========");
+            logger.info("响应状态码: {}", response.getStatusLine().getStatusCode());
+            logger.info("响应体: {}", responseBody);
+            logger.info("=====================================");
 
             JSONObject result = JSON.parseObject(responseBody);
             
@@ -210,9 +262,154 @@ public class VolcEngineApiService {
                 logger.error("API返回错误: {}", errorMsg);
                 throw new RuntimeException("API错误: " + errorMsg);
             }
+            
+            // 记录用量信息（如果有）
+            if (result.containsKey("usage")) {
+                logger.info("API用量信息: {}", result.getJSONObject("usage").toJSONString());
+            } else {
+                logger.warn("API响应中未包含用量信息");
+            }
 
             return result;
         }
+    }
+
+    /**
+     * 调用火山引擎API生成文案
+     * @param productDesc 产品描述
+     * @param style 文案风格
+     * @return 生成的文案
+     */
+    public String generateCopywritingByAPI(String productDesc, String style) {
+        try {
+            Map<String, Object> requestParams = new HashMap<>();
+            
+            // 【重要】文案生成需要使用对话模型，而不是图像模型
+            String chatModelId = volcEngineConfig.getTextModelId();
+            
+            // 如果没有配置文本模型ID，尝试回退到通用模型ID
+            if (chatModelId == null || chatModelId.isEmpty() || chatModelId.contains("xxxxx")) {
+                chatModelId = volcEngineConfig.getModelId();
+                logger.warn("[文案生成API] 未配置有效的文本模型ID，尝试使用通用模型ID: {}", chatModelId);
+            } else {
+                logger.info("[文案生成API] 使用配置的文本模型ID: {}", chatModelId);
+            }
+            
+            requestParams.put("model", chatModelId);
+            
+            // 【重要】构建 messages 数组格式（聊天 API 标准格式）
+            List<Map<String, String>> messages = new java.util.ArrayList<>();
+            
+            // 系统提示词
+            Map<String, String> systemMessage = new HashMap<>();
+            systemMessage.put("role", "system");
+            systemMessage.put("content", "你是一位专业的电商文案策划师，擅长为各种产品创作吸引人的营销文案。");
+            messages.add(systemMessage);
+            
+            // 用户消息
+            String userPrompt = buildCopywritingPrompt(productDesc, style);
+            Map<String, String> userMessage = new HashMap<>();
+            userMessage.put("role", "user");
+            userMessage.put("content", userPrompt);
+            messages.add(userMessage);
+            
+            requestParams.put("messages", messages);
+            requestParams.put("stream", false);
+            
+            logger.info("[文案生成API] 开始调用火山引擎API");
+            logger.info("[文案生成API] 产品描述: {}", productDesc);
+            logger.info("[文案生成API] 文案风格: {}", style);
+            logger.info("[文案生成API] 请求参数: model={}, messages数量={}", chatModelId, messages.size());
+            
+            // 【重要】使用 chat/completions 端点，而不是 completions
+            JSONObject result = sendApiRequest("chat/completions", requestParams);
+            
+            logger.info("[文案生成API] API响应接收成功");
+            
+            // 解析响应结果
+            if (result.containsKey("choices")) {
+                com.alibaba.fastjson.JSONArray choices = result.getJSONArray("choices");
+                logger.info("[文案生成API] 解析choices数组，大小: {}", choices != null ? choices.size() : 0);
+                
+                if (choices != null && choices.size() > 0) {
+                    JSONObject firstChoice = choices.getJSONObject(0);
+                    JSONObject message = firstChoice.getJSONObject("message");
+                    if (message != null) {
+                        String content = message.getString("content");
+                        logger.info("[文案生成API] 文案生成成功，内容长度: {}", content != null ? content.length() : 0);
+                        return content;
+                    } else {
+                        logger.warn("[文案生成API] message字段为空");
+                    }
+                } else {
+                    logger.warn("[文案生成API] choices数组为空");
+                }
+            } else {
+                logger.warn("[文案生成API] 响应中不包含choices字段，完整响应: {}", result.toJSONString());
+            }
+            
+            logger.warn("[文案生成API] API响应格式异常，降级使用本地模板");
+            return generateCopywritingLocal(productDesc, style);
+            
+        } catch (Exception e) {
+            logger.error("[文案生成API] API调用失败: {}", e.getMessage());
+            logger.warn("[文案生成API] 降级使用本地模板生成文案");
+            return generateCopywritingLocal(productDesc, style);
+        }
+    }
+    
+    /**
+     * 构建文案生成提示词
+     * @param productDesc 产品描述
+     * @param style 文案风格
+     * @return 完整的提示词
+     */
+    private String buildCopywritingPrompt(String productDesc, String style) {
+        StringBuilder prompt = new StringBuilder();
+        
+        prompt.append("你是一位专业的电商文案策划师，请为以下产品生成营销文案。\n\n");
+        prompt.append("产品信息：").append(productDesc).append("\n\n");
+        
+        switch (style) {
+            case "humor":
+                prompt.append("风格要求：幽默风趣、轻松活泼，可以使用网络流行语和夸张的表达方式，让读者会心一笑。\n");
+                prompt.append("文案结构：\n");
+                prompt.append("1. 吸引眼球的标题（15字以内）\n");
+                prompt.append("2. 有趣的产品介绍（50-80字）\n");
+                prompt.append("3. 俏皮的行动号召\n");
+                break;
+            case "emotional":
+                prompt.append("风格要求：温情走心、情感共鸣，营造温暖感人的氛围，触动读者内心。\n");
+                prompt.append("文案结构：\n");
+                prompt.append("1. 富有诗意的标题（15字以内）\n");
+                prompt.append("2. 温情的故事化描述（50-80字）\n");
+                prompt.append("3. 温暖的行动号召\n");
+                break;
+            case "inspirational":
+                prompt.append("风格要求：励志向上、正能量满满，激励读者追求更好的生活。\n");
+                prompt.append("文案结构：\n");
+                prompt.append("1. 鼓舞人心的标题（15字以内）\n");
+                prompt.append("2. 激励性的产品介绍（50-80字）\n");
+                prompt.append("3. 有力的行动号召\n");
+                break;
+            case "trendy":
+                prompt.append("风格要求：时尚潮流、年轻化表达，使用小红书风格的文案，充满种草力。\n");
+                prompt.append("文案结构：\n");
+                prompt.append("1. 吸睛的网红风标题（15字以内）\n");
+                prompt.append("2. 种草式产品介绍（50-80字）\n");
+                prompt.append("3. 紧迫感行动号召\n");
+                break;
+            default:
+                prompt.append("风格要求：专业得体、突出产品优势和卖点，简洁明了。\n");
+                prompt.append("文案结构：\n");
+                prompt.append("1. 清晰的标题（15字以内）\n");
+                prompt.append("2. 详细的产品介绍（50-80字）\n");
+                prompt.append("3. 明确的行动号召\n");
+        }
+        
+        prompt.append("\n请直接输出文案内容，不要包含任何解释说明。");
+        
+        return prompt.toString();
     }
 
     public String generateCopywritingLocal(String productDesc, String style) {

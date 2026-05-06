@@ -15,9 +15,14 @@ public class VolcEngineConfig {
     private String apiKey;
 
     /**
-     * 模型ID
+     * 模型ID（图像生成）
      */
     private String modelId;
+
+    /**
+     * 文本模型ID（文案生成）
+     */
+    private String textModelId;
 
     /**
      * 服务地址
@@ -53,6 +58,14 @@ public class VolcEngineConfig {
 
     public void setModelId(String modelId) {
         this.modelId = modelId;
+    }
+
+    public String getTextModelId() {
+        return textModelId;
+    }
+
+    public void setTextModelId(String textModelId) {
+        this.textModelId = textModelId;
     }
 
     public String getServiceUrl() {

@@ -3,7 +3,7 @@ CREATE TABLE `ai_generate_task` (
   `id` bigint NOT NULL AUTO_INCREMENT COMMENT '任务ID',
   `task_name` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NOT NULL COMMENT '任务名称',
   `description` text CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NOT NULL COMMENT '文字描述',
-  `reference_image` varchar(500) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NULL DEFAULT NULL COMMENT '参考图片URL',
+  `reference_image` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NULL DEFAULT NULL COMMENT '参考图片URL或Base64数据',
   `image_params` text CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NULL DEFAULT NULL COMMENT '生图参数（JSON格式）',
   `status` int NOT NULL DEFAULT 0 COMMENT '状态：0-待处理，1-处理中，2-成功，3-失败',
   `error_message` text CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NULL DEFAULT NULL COMMENT '错误信息',

@@ -82,10 +82,12 @@ mybatis-plus:
 #  port: 8082
 # 火山引擎API配置
 volcengine:
-  # API密钥
-  api-key: ark-b838c113-c8ad-41dd-a214-6af60b5e530c-d3d7a
-  # 模型ID
-  model-id: ep-20260422092334-fkljc
+  # API密钥 (支持从环境变量 ARK_API_KEY 读取)
+  api-key: ${ARK_API_KEY:ark-b838c113-c8ad-41dd-a214-6af60b5e530c-d3d7a}
+  # 图像模型ID
+  model-id: ep-20260506192517-658fp
+  # 文本模型ID（需在Ark平台创建对话模型推理接入点）
+  text-model-id: ep-20260506192312-np2qk
   # 服务地址（文生图使用Ark API）
   service-url: https://ark.cn-beijing.volces.com/api/v3
   # 视觉API地址（用于图生图）

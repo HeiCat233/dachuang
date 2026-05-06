@@ -44,12 +44,22 @@ public class AiGenerateController {
     @PostMapping("/createTask")
     public AjaxResult createTask(@RequestBody AiGenerateTask task) {
         try {
+            logger.info("[AiGenerate] 收到创建任务请求: taskName={}, description={}, referenceImage={}", 
+                    task.getTaskName(), 
+                    task.getDescription() != null ? task.getDescription().substring(0, Math.min(50, task.getDescription().length())) : "null",
+                    task.getReferenceImage() != null ? "有参考图片" : "无参考图片");
+            
             Long userId = SecurityUtils.getUserId();
             task.setCreateBy(userId.toString());
+            task.setStatus(0); // 设置初始状态为待处理
+            task.setCreateTime(new java.util.Date());
+            
             Long taskId = taskService.createTask(task);
+            logger.info("[AiGenerate] 任务创建成功: TaskId={}", taskId);
             return AjaxResult.success(taskId);
         } catch (Exception e) {
-            return AjaxResult.error(e.getMessage());
+            logger.error("[AiGenerate] 任务创建失败: {}", e.getMessage(), e);
+            return AjaxResult.error("任务创建失败: " + e.getMessage());
         }
     }
 
@@ -76,6 +86,14 @@ public class AiGenerateController {
             Map<String, Object> imageParams = null;
             if (task.getImageParams() != null && !task.getImageParams().isEmpty()) {
                 imageParams = JSON.parseObject(task.getImageParams(), Map.class);
+                
+                // 【修改点】如果是图生图模式（存在参考图），则移除 size 参数，因为输出尺寸由输入图片决定
+                if (task.getReferenceImage() != null && !task.getReferenceImage().isEmpty()) {
+                    if (imageParams.containsKey("size")) {
+                        imageParams.remove("size");
+                        logger.info("[AiGenerate] 检测到图生图模式，已移除 size 参数: TaskId={}", taskId);
+                    }
+                }
             }
 
             // 调用火山引擎API生成图片
@@ -166,8 +184,8 @@ public class AiGenerateController {
                 }
             }
 
-            // 调用文案生成服务（本地模板生成有趣文案）
-            String copywriting = volcEngineApiService.generateCopywritingLocal(
+            // 调用火山引擎API生成文案（优先使用API，失败则降级到本地模板）
+            String copywriting = volcEngineApiService.generateCopywritingByAPI(
                     task.getDescription(),
                     style
             );
