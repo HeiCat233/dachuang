@@ -65,32 +65,43 @@ public class VolcEngineApiService {
                     requestParams.put("prompt", enhancedPrompt);
                 }
 
-                // 合并其他参数
+                // 合并外部传入的参数
                 if (params != null) {
                     for (Map.Entry<String, Object> entry : params.entrySet()) {
                         requestParams.put(entry.getKey(), entry.getValue());
                     }
                 }
 
-                // 【核心修复：强制覆盖，防止旧任务数据干扰】
-                // 针对 3686400 像素报错：必须在合并 params 之后执行，确保 100% 覆盖掉数据库中的旧 size 数据
+                // 【核心修复：彻底分离文生图与图生图参数】
                 if (isRefineMode) {
-                    // 图生图模式下绝对不能传 size，否则会报错尺寸不匹配
-                    requestParams.remove("size");
-                    logger.info("[图生图模式] 已强制移除 size 参数");
+                    // 图生图模式逻辑
+                    logger.info("[图生图模式] 正在进行最终参数校验");
+                    requestParams.remove("size"); // 移除尺寸，由原图决定
+                    // 确保 image 参数存在且为数组格式
+                    if (!requestParams.containsKey("image")) {
+                        String validatedImage = validateAndProcessReferenceImage(referenceImage);
+                        requestParams.put("image", new String[]{validatedImage});
+                    }
                 } else {
-                    // 文生图模式下强制使用高分辨率，且必须大于 3686400 像素
-                    // 2048x2048 = 4,194,304 像素，绝对安全
+                    // 纯文生图模式逻辑
+                    logger.info("[文生图模式] 正在清理图生图冗余参数");
+                    requestParams.remove("image");    // 绝对不能包含 image 字段
+                    requestParams.remove("strength"); // 绝对不能包含 strength 字段
+                    
+                    // 强制设置高清尺寸以满足 3686400 像素要求
                     requestParams.put("size", "2048x2048"); 
-                    logger.info("[文生图模式] 已强制设置 size 为 2048x2048 (约419万像素)");
+                    logger.info("[文生图模式] 强制设置高清尺寸: 2048x2048");
                 }
                 
-                // 统一设置官方推荐参数
+                // 统一设置官方推荐的基础参数
                 requestParams.put("response_format", "url");
                 requestParams.put("stream", false);
                 requestParams.put("watermark", true);
 
-                logger.info("模式: {}, 参考图片: {}", isRefineMode ? "图生图" : "文生图", isRefineMode ? "是" : "否");
+                logger.info("最终请求模式: {}, 请求参数摘要: prompt='{}', size={}", 
+                        isRefineMode ? "图生图" : "文生图", 
+                        requestParams.get("prompt"), 
+                        requestParams.get("size"));
                 
                 // 统一使用Ark API路径
                 return sendApiRequest("images/generations", requestParams);
