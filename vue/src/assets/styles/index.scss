@@ -11,6 +11,8 @@ body {
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
   font-family: Helvetica Neue, Helvetica, PingFang SC, Hiragino Sans GB, Microsoft YaHei, Arial, sans-serif;
+  background: linear-gradient(to bottom right, #f0f9eb, #e8f5e9);
+  background-attachment: fixed;
 }
 
 label {
@@ -24,6 +26,7 @@ html {
 
 #app {
   height: 100%;
+  background-color: transparent;
 }
 
 *,
@@ -122,6 +125,7 @@ aside {
 //main-container全局样式
 .app-container {
   padding: 20px;
+  background-color: transparent;
 }
 
 .components-container {
@@ -179,4 +183,12 @@ aside {
     vertical-align: middle;
     margin-bottom: 10px;
   }
+}
+
+// 统一修改系统卡片样式
+.el-card {
+  background-color: rgba(255, 255, 255, 0.8) !important;
+  backdrop-filter: blur(10px);
+  border: none !important;
+  border-radius: 12px !important;
 }

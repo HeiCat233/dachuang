@@ -103,6 +103,7 @@
           <template #header>
             <div class="result-header">
               <span>图片生成结果</span>
+              <el-button type="text" @click="imageResults = []">清空</el-button>
             </div>
           </template>
           <div class="image-results">
@@ -113,36 +114,42 @@
                 :preview-src-list="imageResults"
               />
               <div class="image-actions">
-                <el-button size="small" type="primary" @click="downloadImage(image)">
-                  下载
-                </el-button>
-                <el-button size="small" type="danger" @click="removeImage(index)">
-                  删除
-                </el-button>
+                <el-button size="mini" type="primary" icon="el-icon-download" @click="downloadImage(image)"></el-button>
+                <el-button size="mini" type="danger" icon="el-icon-delete" @click="removeImage(index)"></el-button>
               </div>
             </div>
           </div>
         </el-card>
         
         <!-- 文案结果 -->
-        <el-card v-if="copywritingResult" class="result-card">
+        <el-card v-if="copywritingResults.length > 0" class="result-card">
           <template #header>
             <div class="result-header">
               <span>文案生成结果</span>
+              <el-button type="text" @click="copywritingResults = []">清空</el-button>
             </div>
           </template>
-          <div class="copywriting-result">
-            <el-input
-              type="textarea"
-              v-model="copywritingResult"
-              placeholder="文案生成结果将显示在这里"
-              :rows="6"
-              readonly
-            />
-            <div class="copywriting-actions">
-              <el-button type="primary" @click="copyCopywriting">
-                复制文案
-              </el-button>
+          <div class="copywriting-results">
+            <div v-for="(item, index) in copywritingResults" :key="index" class="copywriting-item">
+              <div class="copywriting-meta">
+                <span class="copywriting-time">{{ item.time }}</span>
+                <span class="copywriting-prompt" :title="item.prompt">提示词: {{ item.prompt }}</span>
+              </div>
+              <el-input
+                type="textarea"
+                v-model="item.content"
+                :rows="4"
+                readonly
+              />
+              <div class="copywriting-actions">
+                <el-button size="mini" type="primary" @click="copyText(item.content)">
+                  复制
+                </el-button>
+                <el-button size="mini" type="danger" @click="copywritingResults.splice(index, 1)">
+                  删除
+                </el-button>
+              </div>
+              <el-divider v-if="index < copywritingResults.length - 1"></el-divider>
             </div>
           </div>
         </el-card>
@@ -173,8 +180,9 @@ export default {
         generateAll: false
       },
       imageResults: [],
-      copywritingResult: '',
-      taskId: null
+      copywritingResults: [], // 修改为数组以存储多次生成的结果
+      taskId: null,
+      lastDescription: '' // 记录上次生成时的描述
     }
   },
   methods: {
@@ -197,9 +205,12 @@ export default {
       
       this.loading.generateImage = true;
       try {
-        // 创建任务
+        // 记录当前生成时的描述
+        this.lastDescription = this.form.description;
+        
+        // 每次点击生成图片都创建一个新任务，以确保能获得不同的结果
         const taskData = {
-          taskName: 'AI生图任务',
+          taskName: 'AI生图任务-' + new Date().getTime(),
           description: this.form.description,
           imageParams: JSON.stringify(this.form.imageParams)
         };
@@ -210,75 +221,49 @@ export default {
           const base64Image = await this.convertFileToBase64(file);
           taskData.referenceImage = base64Image;
           
-          // 图生图模式下，移除 size 参数（因为输出尺寸由输入图片决定）
+          // 图生图模式下，移除 size 参数
           if (this.form.imageParams.size) {
-            delete this.form.imageParams.size;
-            taskData.imageParams = JSON.stringify(this.form.imageParams);
+            const params = JSON.parse(JSON.stringify(this.form.imageParams));
+            delete params.size;
+            taskData.imageParams = JSON.stringify(params);
           }
         }
         
         // 调用后端API创建任务
         const taskResponse = await createTask(taskData);
-        console.log('[AI生成] 创建任务响应:', taskResponse);
-        
-        // 检查响应是否成功
-        if (!taskResponse || !taskResponse.data) {
-          throw new Error('创建任务失败：响应数据异常');
-        }
-        
-        this.taskId = taskResponse.data;
-        console.log('[AI生成] 任务ID:', this.taskId);
-        
-        if (!this.taskId) {
-          throw new Error('创建任务失败：未获取到任务ID');
-        }
+        const currentTaskId = taskResponse.data;
+        this.taskId = currentTaskId;
         
         // 调用生成图片API
-        await generateImage(this.taskId);
+        await generateImage(currentTaskId);
         
-        // 轮询等待任务完成（最多等待60秒）
+        // 轮询等待任务完成
         let retryCount = 0;
-        const maxRetries = 12; // 12次 * 5秒 = 60秒
+        const maxRetries = 24; // 24次 * 5秒 = 120秒 (匹配后端超时)
         
         while (retryCount < maxRetries) {
-          // 等待5秒
           await new Promise(resolve => setTimeout(resolve, 5000));
+          const taskDetailResponse = await getTaskDetail(currentTaskId);
           
-          // 查询任务状态
-          const taskDetailResponse = await getTaskDetail(this.taskId);
-          
-          // 检查响应数据是否存在
-          if (!taskDetailResponse || !taskDetailResponse.data) {
-            console.error('任务详情响应数据异常:', taskDetailResponse);
-            continue;
-          }
+          if (!taskDetailResponse || !taskDetailResponse.data) continue;
           
           const taskStatus = taskDetailResponse.data.status;
-          
           if (taskStatus === 2) {
-            // 成功，获取结果
-            const resultResponse = await getImageResult(this.taskId);
+            const resultResponse = await getImageResult(currentTaskId);
             if (resultResponse.data && resultResponse.data.length > 0) {
-              // 处理图片URL，移除可能的反引号
-              this.imageResults = resultResponse.data.map(item => item.resultContent.replace(/`/g, ''));
+              const newImages = resultResponse.data.map(item => item.resultContent.replace(/`/g, ''));
+              // 使用 unshift 将新结果添加到列表最前面，实现“重新显示并保留历史”
+              this.imageResults = [...newImages, ...this.imageResults];
               this.loading.generateImage = false;
               this.$message.success('图片生成成功');
               return;
             }
           } else if (taskStatus === 3) {
-            // 失败
-            const errorMsg = taskDetailResponse.data.errorMessage || '生成失败';
-            this.loading.generateImage = false;
-            this.$message.error('图片生成失败：' + errorMsg);
-            return;
+            throw new Error(taskDetailResponse.data.errorMessage || '生成失败');
           }
-          
           retryCount++;
         }
-        
-        // 超时
-        this.loading.generateImage = false;
-        this.$message.warning('生成超时，请稍后在历史记录中查看');
+        throw new Error('生成超时，请稍后在历史记录中查看');
       } catch (error) {
         this.loading.generateImage = false;
         this.$message.error('图片生成失败：' + error.message);
@@ -294,28 +279,15 @@ export default {
       
       this.loading.generateCopywriting = true;
       try {
-        // 如果没有任务ID，先创建任务
-        if (!this.taskId) {
+        // 如果描述发生了变化，或者当前没有任务ID，则创建新任务
+        if (!this.taskId || this.form.description !== this.lastDescription) {
           const taskData = {
-            taskName: 'AI文案任务',
+            taskName: 'AI文案任务-' + new Date().getTime(),
             description: this.form.description
           };
-          
-          // 调用后端API创建任务
           const taskResponse = await createTask(taskData);
-          console.log('[AI生成] 创建任务响应:', taskResponse);
-          
-          // 检查响应是否成功
-          if (!taskResponse || !taskResponse.data) {
-            throw new Error('创建任务失败：响应数据异常');
-          }
-          
           this.taskId = taskResponse.data;
-          console.log('[AI生成] 任务ID:', this.taskId);
-          
-          if (!this.taskId) {
-            throw new Error('创建任务失败：未获取到任务ID');
-          }
+          this.lastDescription = this.form.description;
         }
         
         // 调用生成文案API
@@ -323,8 +295,14 @@ export default {
         
         // 获取生成结果
         const resultResponse = await getCopywritingResult(this.taskId);
-        if (resultResponse.data.length > 0) {
-          this.copywritingResult = resultResponse.data[0].resultContent;
+        if (resultResponse.data && resultResponse.data.length > 0) {
+          const newCopy = resultResponse.data[0].resultContent;
+          // 将新文案添加到列表最前面
+          this.copywritingResults.unshift({
+            content: newCopy,
+            time: new Date().toLocaleString(),
+            prompt: this.form.description
+          });
         }
         
         this.loading.generateCopywriting = false;
@@ -335,7 +313,7 @@ export default {
       }
     },
     
-    // 一键生成
+    // 一键生成（图片+文案）
     async generateAll() {
       if (!this.form.description) {
         this.$message.error('请输入文字描述');
@@ -344,90 +322,75 @@ export default {
       
       this.loading.generateAll = true;
       try {
-        // 创建任务
+        this.lastDescription = this.form.description;
+        
+        // 创建新任务
         const taskData = {
-          taskName: 'AI一键生成任务',
+          taskName: 'AI一键生成-' + new Date().getTime(),
           description: this.form.description,
           imageParams: JSON.stringify(this.form.imageParams)
         };
         
-        // 如果有上传的参考图片，转换为Base64并添加到任务数据中
+        // 如果有上传的参考图片
         if (this.fileList && this.fileList.length > 0) {
           const file = this.fileList[0].raw || this.fileList[0];
           const base64Image = await this.convertFileToBase64(file);
           taskData.referenceImage = base64Image;
           
-          // 图生图模式下，移除 size 参数
           if (this.form.imageParams.size) {
-            delete this.form.imageParams.size;
-            taskData.imageParams = JSON.stringify(this.form.imageParams);
+            const params = JSON.parse(JSON.stringify(this.form.imageParams));
+            delete params.size;
+            taskData.imageParams = JSON.stringify(params);
           }
         }
         
         // 调用后端API创建任务
         const taskResponse = await createTask(taskData);
-        console.log('[AI生成] 创建任务响应:', taskResponse);
-        
-        // 检查响应是否成功
-        if (!taskResponse || !taskResponse.data) {
-          throw new Error('创建任务失败：响应数据异常');
-        }
-        
-        this.taskId = taskResponse.data;
-        console.log('[AI生成] 任务ID:', this.taskId);
-        
-        if (!this.taskId) {
-          throw new Error('创建任务失败：未获取到任务ID');
-        }
+        const currentTaskId = taskResponse.data;
+        this.taskId = currentTaskId;
         
         // 调用一键生成API
-        await generateAll(this.taskId);
+        await generateAll(currentTaskId);
         
-        // 轮询等待任务完成（最多等待60秒）
+        // 轮询等待任务完成
         let retryCount = 0;
-        const maxRetries = 12;
+        const maxRetries = 24; // 120秒
         
         while (retryCount < maxRetries) {
           await new Promise(resolve => setTimeout(resolve, 5000));
+          const taskDetailResponse = await getTaskDetail(currentTaskId);
           
-          const taskDetailResponse = await getTaskDetail(this.taskId);
-          
-          // 检查响应数据是否存在
-          if (!taskDetailResponse || !taskDetailResponse.data) {
-            console.error('任务详情响应数据异常:', taskDetailResponse);
-            continue;
-          }
+          if (!taskDetailResponse || !taskDetailResponse.data) continue;
           
           const taskStatus = taskDetailResponse.data.status;
           
           if (taskStatus === 2) {
-            // 成功，获取结果
-            const imageResultResponse = await getImageResult(this.taskId);
+            // 成功，分别获取图片和文案结果
+            const imageResultResponse = await getImageResult(currentTaskId);
             if (imageResultResponse.data && imageResultResponse.data.length > 0) {
-              // 处理图片URL，移除可能的反引号
-              this.imageResults = imageResultResponse.data.map(item => item.resultContent.replace(/`/g, ''));
+              const newImages = imageResultResponse.data.map(item => item.resultContent.replace(/`/g, ''));
+              this.imageResults = [...newImages, ...this.imageResults];
             }
             
-            const copywritingResultResponse = await getCopywritingResult(this.taskId);
+            const copywritingResultResponse = await getCopywritingResult(currentTaskId);
             if (copywritingResultResponse.data && copywritingResultResponse.data.length > 0) {
-              this.copywritingResult = copywritingResultResponse.data[0].resultContent;
+              const newCopy = copywritingResultResponse.data[0].resultContent;
+              this.copywritingResults.unshift({
+                content: newCopy,
+                time: new Date().toLocaleString(),
+                prompt: this.form.description
+              });
             }
             
             this.loading.generateAll = false;
             this.$message.success('一键生成成功');
             return;
           } else if (taskStatus === 3) {
-            const errorMsg = taskDetailResponse.data.errorMessage || '生成失败';
-            this.loading.generateAll = false;
-            this.$message.error('生成失败：' + errorMsg);
-            return;
+            throw new Error(taskDetailResponse.data.errorMessage || '生成失败');
           }
-          
           retryCount++;
         }
-        
-        this.loading.generateAll = false;
-        this.$message.warning('生成超时，请稍后在历史记录中查看');
+        throw new Error('生成超时，请稍后在历史记录中查看');
       } catch (error) {
         this.loading.generateAll = false;
         this.$message.error('一键生成失败：' + error.message);
@@ -447,15 +410,15 @@ export default {
       this.imageResults.splice(index, 1);
     },
     
-    // 复制文案
-    copyCopywriting() {
+    // 复制文字
+    copyText(text) {
       const textarea = document.createElement('textarea');
-      textarea.value = this.copywritingResult;
+      textarea.value = text;
       document.body.appendChild(textarea);
       textarea.select();
       document.execCommand('copy');
       document.body.removeChild(textarea);
-      this.$message.success('文案复制成功');
+      this.$message.success('复制成功');
     },
     
     // 将文件转换为Base64
@@ -500,6 +463,65 @@ export default {
   margin-bottom: 20px;
 }
 
+.result-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.image-results {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 20px;
+}
+
+.image-item {
+  border: 1px solid #eee;
+  border-radius: 8px;
+  overflow: hidden;
+  position: relative;
+}
+
+.image-item .el-image {
+  width: 100%;
+  height: 200px;
+  display: block;
+}
+
+.image-actions {
+  padding: 10px;
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  background: rgba(255,255,255,0.9);
+}
+
+.copywriting-item {
+  margin-bottom: 20px;
+}
+
+.copywriting-meta {
+  margin-bottom: 10px;
+  display: flex;
+  justify-content: space-between;
+  font-size: 13px;
+  color: #999;
+}
+
+.copywriting-prompt {
+  max-width: 70%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.copywriting-actions {
+  margin-top: 10px;
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+</style>
 .result-header {
   display: flex;
   justify-content: space-between;
